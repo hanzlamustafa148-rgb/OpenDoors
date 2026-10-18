@@ -83,7 +83,7 @@ passport.deserializeUser(User.deserializeUser()); // Session ki ID se user ki de
 app.use((req, res, next) => {
   res.locals.success = req.flash("success");
   res.locals.error = req.flash("error");
-
+  res.locals.currUser = req.user;   //req.user ko ejs me direct use nhi kr skte thats why local varble me store kradia
   next();
 });
 

@@ -8,7 +8,14 @@ module.exports.listingSchema = Joi.object({
         location: Joi.string().required(),
         country: Joi.string().required(),
         price: Joi.number().required(),
-        image: Joi.string().allow("", null),
+        //image ab string (URL) ya object ({filename, url}) dono allow karta hai, kyunki edit form se object aa sakta hai
+        image: Joi.alternatives().try(
+            Joi.string().allow("", null),
+            Joi.object({
+                filename: Joi.string().allow("", null),
+                url: Joi.string().allow("", null),
+            })
+        ),
     }).required(),
 });
 
@@ -18,5 +25,3 @@ module.exports.reviewSchema = Joi.object({
         comment: Joi.string().required(),
     }).required(),
 });
-
- 
