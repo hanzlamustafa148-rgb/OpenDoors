@@ -5,7 +5,7 @@
 
     <h2>Create a new listing</h2>
 
-    <form method="POST" action="/listings" novalidate class="needs-validation"><!--bootsrap ka default wala for other browswrs-->
+    <form method="POST" action="/listings" novalidate class="needs-validation" enctype="multipart/form-data"><!--bootsrap ka default wala for other browswrs-->
 
         <div class="mb-3">
             <label for="title" class="form-label">Title</label>
@@ -32,11 +32,11 @@
         </div>
 
         <div class="mb-3">
-            <label for="image" class="form-label">Image URL</label>
+            <label for="image" class="form-label">Upload Listing Image</label>
             <input
+                id="image"
                 name="listing[image]"
-                placeholder="Enter image URL"
-                type="text"
+                type="file"
                 class="form-control"
             >
         </div>
@@ -47,6 +47,7 @@
             <input
                 name="listing[price]"
                 placeholder="1200"
+                type="number"
                 class="form-control"
                 required
             >
@@ -66,18 +67,40 @@
             <div class="invalid-feedback">Country name should be valid</div>
         </div>
 
+        </div>
 
         
         <div class="mb-3">
             <label for="location" class="form-label">Location</label>
             <input
                 name="listing[location]"
-                placeholder="Bihar, Patna"
+                placeholder="Jaipur, Rajasthan..."
                 type="text"
                 class="form-control"
                 required
             >
             <div class="invalid-feedback">location should be valid</div>
+        </div>
+
+        <div class="mb-3">
+            <label for="category" class="form-label">Category</label>
+            <select name="listing[category]" id="category" class="form-select" required>
+                <option value="" disabled selected>Select category</option>
+                <option>Trending</option>
+                <option>Rooms</option>
+                <option>Iconic cities</option>
+                <option>Mountains</option>
+                <option>Castles</option>
+                <option>Amazing pools</option>
+                <option>Camping</option>
+                <option>Farms</option>
+                <option>Arctic</option>
+                <option>Domes</option>
+                <option>Boats</option>
+                <option>Desert</option>
+                <option>Beach</option>
+            </select>
+            <div class="invalid-feedback">Please select a category</div>
         </div>
 
         <button class="btn btn-dark add-btn mt-3">Add</button>

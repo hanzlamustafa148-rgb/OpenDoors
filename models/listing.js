@@ -32,6 +32,20 @@ const listingSchema = new Schema({
     type: Schema.Types.ObjectId,
     ref: "User",
   },
+  //map ke liye coordinates (GeoJSON format), coordinates: [longitude, latitude]
+  geometry: {
+    type: {
+      type: String,
+      enum: ["Point"],
+    },
+    coordinates: {
+      type: [Number],
+    },
+  },
+  category: {
+    type: String,
+    enum: ["Trending", "Rooms", "Iconic cities", "Mountains", "Castles", "Amazing pools", "Camping", "Farms", "Arctic", "Domes", "Boats", "Desert", "Beach"],
+  },
 });
 
 

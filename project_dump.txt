@@ -1,0 +1,1940 @@
+﻿
+===== C:\Users\Hanzla\Desktop\MAJORPROJECT - Copy\classroom\routes\post.js =====
+const express = require("express");
+const router = express.Router();
+
+// Index
+router.get("/", (req, res) => {
+    res.send("GET for posts");
+});
+
+// Show
+router.get("/:id", (req, res) => {
+    res.send("GET for post id");
+});
+
+// POST
+router.post("/", (req, res) => {
+    res.send("POST for posts");
+});
+
+// DELETE
+router.delete("/:id", (req, res) => {
+    res.send("DELETE for post id");
+});
+
+module.exports = router;
+
+===== C:\Users\Hanzla\Desktop\MAJORPROJECT - Copy\classroom\routes\user.js =====
+const express = require("express");
+const router = express.Router();
+
+
+//Index - Users
+router.get("/", (req, res) => {
+    res.send("GET for Users");
+});
+
+//Show - user
+router.get("/:id", (req, res) => {
+    res.send("GET for user id");
+});
+
+//POST - users
+router.post("/", (req, res) => {
+    res.send("POST for users");
+});
+
+//DELETE - Users
+router.delete("/:id", (req, res) => {
+    res.send("DELETE for user id");
+});
+
+module.exports = router;
+
+===== C:\Users\Hanzla\Desktop\MAJORPROJECT - Copy\classroom\views\page.ejs =====
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <%= successMsg %>
+    <%= failureMsg %>
+
+    <h1>Hello, <%= name %></h1>
+</body>
+</html>
+
+===== C:\Users\Hanzla\Desktop\MAJORPROJECT - Copy\classroom\server.js =====
+
+const express = require("express");
+const app = express();
+const path = require("path");
+const user = require("./routes/user.js");
+const post = require("./routes/post.js"); 
+//const cookieParser = require("cookie-parser");
+const session = require("express-session");
+const flash = require("connect-flash");
+
+app.set("view engine","ejs");
+app.set("views", path.join(__dirname, "views"));
+
+
+
+const sessionOptions = {
+  secret: "mysupersecretstring",
+  resave: false,
+  saveUninitialized: true,
+};
+
+app.use(session(sessionOptions));
+app.use(flash());
+
+app.use((req, res, next) => {
+  res.locals.successMsg = req.flash("success");
+  res.locals.errorMsg = req.flash("error");
+  next();
+});
+
+app.get("/register", (req, res) => {
+  let { name = "anonymous" } = req.query;
+  req.session.name = name;
+
+  if (name === "anonymous") {
+    req.flash("error", "user not registered");
+  } else {
+    req.flash("success", "user registered successfully!");
+  }
+
+  res.redirect("/hello");
+});
+
+
+app.get("/hello", (req, res) => {
+  res.locals.successMsg = req.flash("success");
+  res.locals.failureMsg = req.flash("error");
+  res.render("page.ejs", { name: req.session.name });
+});
+
+
+// app.get("/reqcount", (req, res) => {
+//    if (req.session.count) {
+//      req.session.count++;
+//    } else {
+//      req.session.count = 1;
+//    }
+   
+//    res.send(`You sent a request ${req.session.count} times`);
+// });
+
+
+// app.get("/test", (req, res) => {
+//     res.send("test successful!");
+// });
+
+
+
+// app.use(cookieParser("secretcode")); //yaha secret code dete h
+
+// app.get("/getsignedcookies", (req, res) => {
+//     res.cookie("made-in", "india", {signed: true});
+//     res.send("signed cookie sent");
+// });
+
+// //wo cookie ko verify krna
+// app.get("/verify", (req, res) => {
+//     console.log(req.signedCookies);
+//     res.send("verified!");
+// });
+
+
+
+// app.get("/getcookies", (req, res) => {
+//     res.cookie("greet", "hello");
+//     res.cookie("madeIN", "INDIA");
+//     res.send("send u some cookies!");
+// });
+
+
+// app.get("/", (req, res) => {
+//     console.dir(req.cookies);
+//     res.send("Hi, I am Root!");
+// });
+
+
+// //Segregating Routes
+// //ye line router object ko chlayega
+// app.use("/users", user);
+// app.use("/posts", post);
+
+
+app.listen(3000, () => {
+    console.log("server is listening to 3000");
+});
+
+
+
+
+
+
+
+===== C:\Users\Hanzla\Desktop\MAJORPROJECT - Copy\controllers\listing.js =====
+const Listing = require("../models/listing");
+
+
+//Index Route MVC
+module.exports.index = async (req, res) => {
+  const allListings = await Listing.find({}); //listing.find ka mltb "listing" to model hogya, find({}) is ur db me find kro or uske andr koi condition nhi h to sabhi listings milengi 
+  res.render("listings/index.ejs", { allListings });
+
+}
+
+//New  Route MVC
+module.exports.renderNewForm = (req, res) => {
+  res.render("listings/new.ejs");
+};
+
+
+//Show Listing Route MVC
+module.exports.showListing = async (req, res) => {
+  let {id} = req.params;
+  const listing = await Listing.findById(id)
+    .populate({
+      path: "reviews",
+      populate: {
+        path: "author",
+      },
+    }) //reviews ka info + har review ka author ka info bhi (nested populate)
+    .populate("owner");
+
+  if(!listing) {
+    req.flash("error", "Listing you requested for does not exist");
+    return res.redirect("/listings");
+  }
+
+  res.render("listings/show.ejs", {listing});
+
+};
+
+
+//New Listing Route MVC
+module.exports.createListing = async (req, res, next) => {
+  const newListing = new Listing(req.body.listing);
+  newListing.owner = req.user._id;
+  if (req.file) {
+    newListing.image = { url: req.file.path, filename: req.file.filename };
+  }
+  await newListing.save();
+  req.flash("success", "New Listing Created!");
+  res.redirect("/listings");
+};
+
+//Edit Route MVC
+module.exports.renderEditForm = async (req, res) => {
+  let { id } = req.params;
+  const listing = await Listing.findById(id);
+  if(!listing) {
+    req.flash("error", "Listing you requested for does not exist");
+    return res.redirect("/listings");
+  }
+  res.render("listings/edit.ejs", { listing });
+};
+
+
+//Update Listing Route MVC
+module.exports.updateListing = async (req, res) => {
+  const { id } = req.params;
+  const listing = await Listing.findByIdAndUpdate(id, { ...req.body.listing }, { new: true });
+  if (req.file) {
+    listing.image = { url: req.file.path, filename: req.file.filename };
+    await listing.save();
+  }
+  req.flash("success", "Listing Updated!");
+  res.redirect(`/listings/${id}`);
+};
+
+//Delete Listing Route MVC
+module.exports.deleteListing = async (req, res) => {
+  let { id } = req.params;
+  let deletedListing = await Listing.findByIdAndDelete(id);
+  console.log(deletedListing);
+  req.flash("success", " Listing Deleted!");
+  res.redirect("/listings");
+};
+
+===== C:\Users\Hanzla\Desktop\MAJORPROJECT - Copy\controllers\reviews.js =====
+const Review = require("../models/review.js");
+const Listing = require("../models/listing.js");
+
+//post review
+module.exports.createReview = async (req, res) => {
+    let listing = await Listing.findById(req.params.id);
+    let newReview = new Review(req.body.review);
+    newReview.author = req.user._id;
+    listing.reviews.push(newReview);
+    await newReview.save();
+    await listing.save();
+    req.flash("success", "New Review Created!");
+    res.redirect(`/listings/${listing._id}`);
+};
+
+//Delete review
+module.exports.destroyReview = async (req, res) => {
+    let { id, reviewId } = req.params;
+
+    await Listing.findByIdAndUpdate(id, {$pull: {reviews: reviewId}}); //$pull MongoDB ka ek operator hai jo array me se koi specific value/document hataane ke liye use hota hai.
+    await Review.findByIdAndDelete(reviewId);
+    req.flash("success", "Review Deleted!");
+    res.redirect(`/listings/${id}`);
+};
+
+===== C:\Users\Hanzla\Desktop\MAJORPROJECT - Copy\controllers\users.js =====
+const User = require("../models/user.js");
+
+//signup form render
+module.exports.renderSignupForm = (req, res) => {
+    res.render("users/signup.ejs");
+};
+
+//signup
+module.exports.signup = async (req, res, next) => {
+    try {
+        let {username, email, password} = req.body;
+        const newUser = new User({email, username});
+        const registeredUser = await User.register(newUser, password);
+
+        //login after signup
+        req.login(registeredUser, (err) => { //Passport ka method. Isse user ko automatically login kar diya, taaki signup ke baad dobara login na karna pade.
+            if (err) {
+                return next(err);
+            }
+            req.flash("success", "Welcome to OpenDoors!");
+            res.redirect("/listings");
+        });
+
+    } catch(e) {
+        req.flash("error", e.message);
+        res.redirect("/signup");
+    }
+};
+
+//login form render
+module.exports.renderLoginForm = (req, res) => {
+    res.render("users/login.ejs");
+};
+
+//login
+module.exports.login = async (req, res) => {
+    req.flash("success", "Welcome to OpenDoors!");
+    let redirectUrl = res.locals.redirectUrl || "/listings"; //home page se jab login krre the to page not found pe jara tha isly ye kia h
+    res.redirect(redirectUrl);
+};
+
+//logout
+module.exports.logout = (req, res, next) => {
+    req.logout((err) => {
+        if (err) {
+            return next(err);
+        }
+        req.flash("success", "you are logged out!");
+        res.redirect("/listings");
+    });
+};
+
+===== C:\Users\Hanzla\Desktop\MAJORPROJECT - Copy\init\data.js =====
+const sampleListings = [
+  {
+    title: "Cozy Beachfront Cottage",
+    description:
+      "Escape to this charming beachfront cottage for a relaxing getaway. Enjoy stunning ocean views and easy access to the beach.",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1552733407-5d5c46c3bb3b?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTB8fHRyYXZlbHxlbnwwfHwwfHx8MA%3D%3D&auto=format&fit=crop&w=800&q=60",
+    },
+    price: 1500,
+    location: "Malibu",
+    country: "United States",
+  },
+
+  {
+    title: "Modern Loft in Downtown",
+    description:
+      "Stay in the heart of the city in this stylish loft apartment. Perfect for urban explorers!",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1501785888041-af3ef285b470?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTh8fHRyYXZlbHxlbnwwfHwwfHx8MA%3D%3D&auto=format&fit=crop&w=800&q=60",
+    },
+    price: 1200,
+    location: "New York City",
+    country: "United States",
+  },
+
+  {
+    title: "Mountain Retreat",
+    description:
+      "Unplug and unwind in this peaceful mountain cabin. Surrounded by nature, it's a perfect place to recharge.",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1571896349842-33c89424de2d?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8N3x8aG90ZWxzfGVufDB8fDB8fHww&auto=format&fit=crop&w=800&q=60",
+    },
+    price: 1000,
+    location: "Aspen",
+    country: "United States",
+  },
+
+  {
+    title: "Historic Villa in Tuscany",
+    description:
+      "Experience the charm of Tuscany in this beautifully restored villa. Explore the rolling hills and vineyards.",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1566073771259-6a8506099945?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8M3x8aG90ZWxzfGVufDB8fDB8fHww&auto=format&fit=crop&w=800&q=60",
+    },
+    price: 2500,
+    location: "Florence",
+    country: "Italy",
+  },
+
+  {
+    title: "Secluded Treehouse Getaway",
+    description:
+      "Live among the treetops in this unique treehouse retreat. A true nature lover's paradise.",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTV8fGhvdGVsc3xlbnwwfHwwfHx8MA%3D%3D&auto=format&fit=crop&w=800&q=60",
+    },
+    price: 800,
+    location: "Portland",
+    country: "United States",
+  },
+
+  {
+    title: "Beachfront Paradise",
+    description:
+      "Step out of your door onto the sandy beach. This beachfront condo offers the ultimate relaxation.",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1571003123894-1f0594d2b5d9?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MjB8fGhvdGVsc3xlbnwwfHwwfHx8MA%3D%3D&auto=format&fit=crop&w=800&q=60",
+    },
+    price: 2000,
+    location: "Cancun",
+    country: "Mexico",
+  },
+
+  {
+    title: "Rustic Cabin by the Lake",
+    description:
+      "Spend your days fishing and kayaking on the serene lake. This cozy cabin is perfect for outdoor enthusiasts.",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTB8fG1vdW50YWlufGVufDB8fDB8fHww&auto=format&fit=crop&w=800&q=60",
+    },
+    price: 900,
+    location: "Lake Tahoe",
+    country: "United States",
+  },
+
+  {
+    title: "Luxury Penthouse with City Views",
+    description:
+      "Indulge in luxury living with panoramic city views from this stunning penthouse apartment.",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1622396481328-9b1b78cdd9fd?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8M3x8c2t5JTIwdmFjYXRpb258ZW58MHx8MHx8fDA%3D&auto=format&fit=crop&w=800&q=60",
+    },
+    price: 3500,
+    location: "Los Angeles",
+    country: "United States",
+  },
+
+  {
+    title: "Ski-In/Ski-Out Chalet",
+    description:
+      "Hit the slopes right from your doorstep in this ski-in/ski-out chalet in the Swiss Alps.",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1502784444187-359ac186c5bb?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTJ8fHNreSUyMHZhY2F0aW9ufGVufDB8fDB8fHww&auto=format&fit=crop&w=800&q=60",
+    },
+    price: 3000,
+    location: "Verbier",
+    country: "Switzerland",
+  },
+
+  {
+    title: "Safari Lodge in the Serengeti",
+    description:
+      "Experience the thrill of the wild in a comfortable safari lodge. Witness the Great Migration up close.",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1493246507139-91e8fad9978e?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Mjl8fG1vdW50YWlufGVufDB8fDB8fHww&auto=format&fit=crop&w=800&q=60",
+    },
+    price: 4000,
+    location: "Serengeti National Park",
+    country: "Tanzania",
+  },
+
+  {
+    title: "Historic Canal House",
+    description:
+      "Stay in a piece of history in this beautifully preserved canal house in Amsterdam's iconic district.",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8M3x8Y2FtcGluZ3xlbnwwfHwwfHx8MA%3D%3D&auto=format&fit=crop&w=800&q=60",
+    },
+    price: 1800,
+    location: "Amsterdam",
+    country: "Netherlands",
+  },
+
+  {
+    title: "Private Island Retreat",
+    description:
+      "Have an entire island to yourself for a truly exclusive and unforgettable vacation experience.",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1618140052121-39fc6db33972?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8NHx8bG9kZ2V8ZW58MHx8MHx8fDA%3D&auto=format&fit=crop&w=800&q=60",
+    },
+    price: 10000,
+    location: "Fiji",
+    country: "Fiji",
+  },
+
+  {
+    title: "Charming Cottage in the Cotswolds",
+    description:
+      "Escape to the picturesque Cotswolds in this quaint and charming cottage with a thatched roof.",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1602088113235-229c19758e9f?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8N3x8YmVhY2glMjB2YWNhdGlvbnxlbnwwfHwwfHx8MA%3D%3D&auto=format&fit=crop&w=800&q=60",
+    },
+    price: 1200,
+    location: "Cotswolds",
+    country: "United Kingdom",
+  },
+
+  {
+    title: "Historic Brownstone in Boston",
+    description:
+      "Step back in time in this elegant historic brownstone located in the heart of Boston.",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1533619239233-6280475a633a?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTR8fHNreSUyMHZhY2F0aW9ufGVufDB8fDB8fHww&auto=format&fit=crop&w=800&q=60",
+    },
+    price: 2200,
+    location: "Boston",
+    country: "United States",
+  },
+
+  {
+    title: "Beachfront Bungalow in Bali",
+    description:
+      "Relax on the sandy shores of Bali in this beautiful beachfront bungalow with a private pool.",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1602391833977-358a52198938?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MzJ8fGNhbXBpbmd8ZW58MHx8MHx8fDA%3D&auto=format&fit=crop&w=800&q=60",
+    },
+    price: 1800,
+    location: "Bali",
+    country: "Indonesia",
+  },
+
+  {
+    title: "Mountain View Cabin in Banff",
+    description:
+      "Enjoy breathtaking mountain views from this cozy cabin in the Canadian Rockies.",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1521401830884-6c03c1c87ebb?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTJ8fGxvZGdlfGVufDB8fDB8fHww&auto=format&fit=crop&w=800&q=60",
+    },
+    price: 1500,
+    location: "Banff",
+    country: "Canada",
+  },
+
+  {
+    title: "Art Deco Apartment in Miami",
+    description:
+      "Step into the glamour of the 1920s in this stylish Art Deco apartment in South Beach.",
+    image: {
+      filename: "listingimage",
+      url: "https://plus.unsplash.com/premium_photo-1670963964797-942df1804579?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTZ8fGxvZGdlfGVufDB8fDB8fHww&auto=format&fit=crop&w=800&q=60",
+    },
+    price: 1600,
+    location: "Miami",
+    country: "United States",
+  },
+
+  {
+    title: "Tropical Villa in Phuket",
+    description:
+      "Escape to a tropical paradise in this luxurious villa with a private infinity pool in Phuket.",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1470165301023-58dab8118cc9?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTl8fGxvZGdlfGVufDB8fDB8fHww&auto=format&fit=crop&w=800&q=60",
+    },
+    price: 3000,
+    location: "Phuket",
+    country: "Thailand",
+  },
+
+  {
+    title: "Historic Castle in Scotland",
+    description:
+      "Live like royalty in this historic castle in the Scottish Highlands. Explore the rugged beauty of the area.",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1585543805890-6051f7829f98?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTl8fGJlYWNoJTIwdmFjYXRpb258ZW58MHx8MHx8fDA%3D&auto=format&fit=crop&w=800&q=60",
+    },
+    price: 4000,
+    location: "Scottish Highlands",
+    country: "United Kingdom",
+  },
+
+  {
+    title: "Desert Oasis in Dubai",
+    description:
+      "Experience luxury in the middle of the desert in this opulent oasis in Dubai with a private pool.",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1518684079-3c830dcef090?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Mnx8ZHViYWl8ZW58MHx8MHx8fDA%3D&auto=format&fit=crop&w=800&q=60",
+    },
+    price: 5000,
+    location: "Dubai",
+    country: "United Arab Emirates",
+  },
+
+  {
+    title: "Rustic Log Cabin in Montana",
+    description:
+      "Unplug and unwind in this cozy log cabin surrounded by the natural beauty of Montana.",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1586375300773-8384e3e4916f?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTN8fGxvZGdlfGVufDB8fDB8fHww&auto=format&fit=crop&w=800&q=60",
+    },
+    price: 1100,
+    location: "Montana",
+    country: "United States",
+  },
+
+  {
+    title: "Beachfront Villa in Greece",
+    description:
+      "Enjoy the crystal-clear waters of the Mediterranean in this beautiful beachfront villa on a Greek island.",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1602343168117-bb8ffe3e2e9f?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8NXx8dmlsbGF8ZW58MHx8MHx8fDA%3D&auto=format&fit=crop&w=800&q=60",
+    },
+    price: 2500,
+    location: "Mykonos",
+    country: "Greece",
+  },
+
+  {
+    title: "Eco-Friendly Treehouse Retreat",
+    description:
+      "Stay in an eco-friendly treehouse nestled in the forest. It's the perfect escape for nature lovers.",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1488462237308-ecaa28b729d7?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8OXx8c2t5JTIwdmFjYXRpb258ZW58MHx8MHx8fDA%3D&auto=format&fit=crop&w=800&q=60",
+    },
+    price: 750,
+    location: "Costa Rica",
+    country: "Costa Rica",
+  },
+
+  {
+    title: "Historic Cottage in Charleston",
+    description:
+      "Experience the charm of historic Charleston in this beautifully restored cottage with a private garden.",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1587381420270-3e1a5b9e6904?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTB8fGxvZGdlfGVufDB8fDB8fHww&auto=format&fit=crop&w=800&q=60",
+    },
+    price: 1600,
+    location: "Charleston",
+    country: "United States",
+  },
+
+  {
+    title: "Modern Apartment in Tokyo",
+    description:
+      "Explore the vibrant city of Tokyo from this modern and centrally located apartment.",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1480796927426-f609979314bd?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTV8fHRva3lvfGVufDB8fDB8fHww&auto=format&fit=crop&w=800&q=60",
+    },
+    price: 2000,
+    location: "Tokyo",
+    country: "Japan",
+  },
+
+  {
+    title: "Lakefront Cabin in New Hampshire",
+    description:
+      "Spend your days by the lake in this cozy cabin in the scenic White Mountains of New Hampshire.",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1578645510447-e20b4311e3ce?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8NDF8fGNhbXBpbmd8ZW58MHx8MHx8fDA%3D&auto=format&fit=crop&w=800&q=60",
+    },
+    price: 1200,
+    location: "New Hampshire",
+    country: "United States",
+  },
+
+  {
+    title: "Luxury Villa in the Maldives",
+    description:
+      "Indulge in luxury in this overwater villa in the Maldives with stunning views of the Indian Ocean.",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1439066615861-d1af74d74000?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8NHx8bGFrZXxlbnwwfHwwfHx8MA%3D%3D&auto=format&fit=crop&w=800&q=60",
+    },
+    price: 6000,
+    location: "Maldives",
+    country: "Maldives",
+  },
+
+  {
+    title: "Ski Chalet in Aspen",
+    description:
+      "Hit the slopes in style with this luxurious ski chalet in the world-famous Aspen ski resort.",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTh8fGxha2V8ZW58MHx8MHx8fDA%3D&auto=format&fit=crop&w=800&q=60",
+    },
+    price: 4000,
+    location: "Aspen",
+    country: "United States",
+  },
+
+  {
+    title: "Secluded Beach House in Costa Rica",
+    description:
+      "Escape to a secluded beach house on the Pacific coast of Costa Rica. Surf, relax, and unwind.",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1499793983690-e29da59ef1c2?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Mnx8YmVhY2glMjBob3VzZXxlbnwwfHwwfHx8MA%3D%3D&auto=format&fit=crop&w=800&q=60",
+    },
+    price: 1800,
+    location: "Costa Rica",
+    country: "Costa Rica",
+  },
+];
+
+module.exports = { data: sampleListings };
+
+===== C:\Users\Hanzla\Desktop\MAJORPROJECT - Copy\init\index.js =====
+const mongoose = require("mongoose");
+const initData = require("./data.js");
+const Listing = require("../models/listing.js");
+
+const MONGO_URL = "mongodb://127.0.0.1:27017/opendoors";
+
+main()
+  .then(() => {
+    console.log("connected to DB");
+  })
+  .catch((err) => {
+    console.log(err);
+  });
+
+async function main() {
+  await mongoose.connect(MONGO_URL);
+}
+
+const initDB = async () => {
+  await Listing.deleteMany({});
+  initData.data = initData.data.map((obj) => ({ ...obj, owner: "6ad39a3a9a3ce89b87ff4e32"}));
+  await Listing.insertMany(initData.data);//object tha data.js m
+  console.log("data was initialized");
+};
+
+initDB();
+
+===== C:\Users\Hanzla\Desktop\MAJORPROJECT - Copy\models\listing.js =====
+const mongoose = require("mongoose");
+const Schema = mongoose.Schema;
+const Review = require("./review.js");
+
+const listingSchema = new Schema({
+  title: {
+    type: String,
+    required: true,
+  },
+
+  description: String,
+
+  image: {
+    filename: String,
+    url: {
+      type: String,
+      default:
+        "https://images.unsplash.com/photo-1518780664697-55e3ad937233?w=800",
+    },
+  },
+
+  price: Number,
+  location: String,
+  country: String,
+  reviews: [
+    {
+      type: Schema.Types.ObjectId, //Har Review document ka MongoDB automatically ek _id banata hai., Phir Listing ke reviews array mein usi Review ki _id store hoti hai:
+      ref: "Review",
+    },
+  ],
+  owner: {
+    type: Schema.Types.ObjectId,
+    ref: "User",
+  },
+});
+
+
+//jab hamra delete route listing ka trigger hoga to ye middlwear chlega 
+listingSchema.post("findOneAndDelete", async (listing) => {
+  if (listing) {
+    await Review.deleteMany({ _id: {$in: listing.reviews } });
+  }
+});
+//Mongoose ka rule hai: schema middleware hamesha us model ki file me likha jaata hai jiske schema pe wo attach ho raha hai.
+
+
+
+
+const Listing = mongoose.model("Listing", listingSchema);
+
+module.exports = Listing;
+
+===== C:\Users\Hanzla\Desktop\MAJORPROJECT - Copy\models\review.js =====
+const mongoose = require("mongoose");
+const Schema = mongoose.Schema;
+
+const reviewSchema = new Schema({
+    comment: String,
+    rating: {
+        type: Number,
+        min: 1,
+        max: 5,
+    },
+    createdAt: {
+        type: Date,
+        default: Date.now,
+    },
+    author: {
+        type: Schema.Types.ObjectId,
+        ref: "User",
+    },
+});
+
+module.exports = mongoose.model("Review", reviewSchema);
+
+//ab ye listing one to many ka relation hoga
+//bcz har ek listing me individual review hoga 
+
+===== C:\Users\Hanzla\Desktop\MAJORPROJECT - Copy\models\user.js =====
+const mongoose = require("mongoose");
+const Schema = mongoose.Schema;
+const passportLocalMongoose = require("passport-local-mongoose").default;
+
+const userSchema = new Schema({
+  email: {
+    type: String,
+    required: true,
+  },
+});
+
+userSchema.plugin(passportLocalMongoose);
+
+module.exports = mongoose.model("User", userSchema);
+
+===== C:\Users\Hanzla\Desktop\MAJORPROJECT - Copy\public\css\style.css =====
+body {
+    font-family: "Plus Jakarta Sans", sans-serif !important;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+.container {
+    flex: 1;
+}
+
+.fa-door-open {
+    color: #fe424d;
+    font-size: 2rem;
+}
+
+.navbar {
+    height: 5rem;
+    background-color: white;
+}
+
+.nav-link {
+    color: #222222 !important;
+}
+
+/* Footer */
+.f-info-links a {
+    text-decoration: none;
+    color: #222222;
+}
+
+.f-info-links a:hover {
+    text-decoration: underline;
+}
+
+.f-info-links,
+.f-info-socials,
+.f-info-brand {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.f-info-socials i {
+    font-size: 1.2rem;
+    margin-right: 1rem;
+}
+
+.f-info {
+    text-align: center;
+    height: 8rem;
+    background-color: #ebebeb;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: space-evenly;
+}
+
+/* Cards */
+.listing-card {
+    border: none !important;
+    margin-bottom: 2rem;
+}
+
+.card-img-top {
+    border-radius: 1rem !important;
+    width: 100% !important;
+    object-fit: cover !important;
+}
+
+.card-body {
+    padding: 0 !important;
+}
+
+.card-text p {
+    font-weight: 400 !important;
+}
+
+.listing-link {
+    text-decoration: none;
+}
+
+/* Card effect */
+.card-img-overlay {
+    opacity: 0;
+}
+
+.card-img-overlay:hover {
+    opacity: 0.2;
+    background-color: white;
+}
+
+/* New page */
+.add-btn {
+    background-color: #fe424d !important;
+    border: none !important;
+}
+
+/* Edit page */
+.edit-btn {
+    background-color: #fe424d !important;
+    border: none !important;
+}
+
+/* Show page */
+.show-img {
+    height: 30vh;
+}
+
+.show-card {
+    padding-right: 0;
+    padding-left: 0;
+}
+
+.btns {
+    display: flex;
+    gap: 1rem;
+}
+
+.btns form {
+    margin: 0;
+}
+
+===== C:\Users\Hanzla\Desktop\MAJORPROJECT - Copy\public\js\script.js =====
+(() => {
+  'use strict'
+
+  const forms = document.querySelectorAll('.needs-validation')
+
+  Array.from(forms).forEach(form => {
+    form.addEventListener('submit', event => {
+      if (!form.checkValidity()) {
+        event.preventDefault()
+        event.stopPropagation()
+      }
+
+      form.classList.add('was-validated')
+    }, false)
+  })
+})()
+
+//data validation code 
+
+===== C:\Users\Hanzla\Desktop\MAJORPROJECT - Copy\routes\listing.js =====
+const express = require("express");
+const router = express.Router(); //Router Object Creation
+const wrapAsync = require("../utils/wrapAsync.js");
+
+const Listing = require("../models/listing.js");
+const {isLoggedIn, isOwner, validateListing} = require("../middleware.js");
+
+const listingController = require("../controllers/listing.js");
+
+const multer = require("multer");
+const { storage } = require("../cloudConfig.js");
+const upload = multer({ storage });
+
+
+
+
+
+//index route
+router.get("/", wrapAsync(listingController.index)); //MVC jese hi router / pe req gyi to index name ka function chlega
+
+
+
+//new route
+router.get("/new", isLoggedIn, listingController.renderNewForm);
+ 
+
+
+//show route
+router.get("/:id", wrapAsync(listingController.showListing));
+
+
+//create route
+router.post(
+  "/",
+  isLoggedIn,
+  upload.single("listing[image]"), //multer file pakad ke Cloudinary pe bhejta hai, validateListing se PEHLE hona zaroori hai
+  validateListing, //jab listing pe req ayega to listing ko validate kia jayega, tabhi aage ka kam chlega 
+   wrapAsync (listingController.createListing)
+);
+
+
+
+
+//edit route
+router.get(
+  "/:id/edit",
+   isLoggedIn,
+   isOwner,
+   wrapAsync(listingController.renderEditForm));
+
+
+
+
+//update route
+router.put("/:id",
+  isLoggedIn,
+  isOwner,
+  upload.single("listing[image]"),
+  validateListing,
+  wrapAsync(listingController.updateListing));
+
+
+
+//Delte route
+router.delete("/:id",
+   isLoggedIn,
+   isOwner,
+    wrapAsync(listingController.deleteListing));
+
+
+
+module.exports = router;
+
+===== C:\Users\Hanzla\Desktop\MAJORPROJECT - Copy\routes\review.js =====
+const express = require("express");
+const router = express.Router({mergeParams: true }); //Router Object Creation
+const wrapAsync = require("../utils/wrapAsync.js");
+const ExpressError = require("../utils/ExpressError.js");
+
+const Review = require("../models/review.js");
+const Listing = require("../models/listing.js");
+const {validateReview, isLoggedIn, isReviewAuthor} = require("../middleware.js");
+
+const reviewController = require("../controllers/reviews.js");
+
+//post review route
+router.post("/", isLoggedIn, validateReview, wrapAsync(reviewController.createReview));
+
+//when adding review after the route sepration, we encounter that the id is all generating and further working but that id was not moving on from app to review itself for that we use mergeParams.. see line no 2
+
+//Delete route for review
+router.delete(
+  "/:reviewId",
+  isLoggedIn,
+  isReviewAuthor,
+  wrapAsync(reviewController.destroyReview)
+);
+
+module.exports = router;
+
+===== C:\Users\Hanzla\Desktop\MAJORPROJECT - Copy\routes\user.js =====
+const express = require("express");
+const router = express.Router();
+const wrapAsync = require("../utils/wrapAsync.js");
+const passport = require("passport");
+const { saveRedirectUrl } = require("../middleware.js");
+const userController = require("../controllers/users.js");
+
+router.get("/signup", userController.renderSignupForm);
+
+router.post("/signup", wrapAsync(userController.signup));
+
+//login user part
+router.get("/login", userController.renderLoginForm);
+
+//isme passport authenticater khud authenticate krr lega signup user or login ka credentrials
+router.post(
+    "/login",
+    saveRedirectUrl,
+    passport.authenticate("local", {
+        failureRedirect: "/login",
+        failureFlash: true,
+    }),
+    userController.login
+);
+
+router.get("/logout", userController.logout);
+
+module.exports = router;
+
+===== C:\Users\Hanzla\Desktop\MAJORPROJECT - Copy\utils\ExpressError.js =====
+class ExpressError extends Error {
+    constructor(statusCode, message) {
+        super();
+        this.statusCode = statusCode;
+        this.message = message;
+    }
+}
+
+module.exports = ExpressError;
+
+===== C:\Users\Hanzla\Desktop\MAJORPROJECT - Copy\utils\wrapAsync.js =====
+//wrapAsync kya karta hai
+//Ye function ek wrapper/helper hai jo yehi try-catch ka kaam automatically kar deta hai, taaki tumhe baar baar likhna na pade:
+module.exports = (fn) => {
+    return (req, res, next) => {
+        fn(req, res, next).catch(next);
+    };
+};
+
+===== C:\Users\Hanzla\Desktop\MAJORPROJECT - Copy\views\includes\flash.ejs =====
+<% if(success && success.length) { %> <!--ab wo green hatjuyega -->
+<div class="alert alert-success alert-dismissible fade show col-6 offset-3" role="alert">
+    <%= success %>
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+</div>
+<% } %>
+
+<% if(error && error.length) { %> <!--ab wo green hatjuyega -->
+<div class="alert alert-danger alert-dismissible fade show col-6 offset-3" role="alert">
+    <%= error %>
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+</div>
+<% } %>
+
+===== C:\Users\Hanzla\Desktop\MAJORPROJECT - Copy\views\includes\footer.ejs =====
+<footer>
+    <div class="f-info-socials">
+        <i class="fa-brands fa-square-facebook"></i>
+        <i class="fa-brands fa-square-instagram"></i>
+        <i class="fa-brands fa-square-linkedin"></i>
+    </div>
+    <div class="f-info-brand">&copy; OpenDoors Private Limited</div>
+    <div class="f-info-links">
+        <a href="/privacy">Privacy</a>
+        <a href="/terms">Privacy</a>
+    </div>
+</footer>
+
+===== C:\Users\Hanzla\Desktop\MAJORPROJECT - Copy\views\includes\navbar.ejs =====
+<nav class="navbar navbar-expand-md bg-body-light border-bottom sticky-top">
+  <div class="container-fluid">
+    <a class="navbar-brand" href="/"><i class="fa-solid fa-door-open"></i></a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNavAltMarkup" 
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navbarNavAltMarkup">
+      <div class="navbar-nav">
+        <a class="nav-link "  href="/">Home</a>
+        <a class="nav-link" href="/listings">All Listings</a>
+        <a class="nav-link" href="/listings/new">Add New Listing</a>
+      </div>
+
+      
+      <div class="navbar-nav ms-auto">
+        <% if(!currUser) { %>
+        <a class="nav-link "  href="/signup">Sign up</a>
+        <a class="nav-link" href="/login">Log in</a>
+        <% } %> <% if(currUser) { %>
+        <a class="nav-link" href="/logout">Log out</a>
+        <% } %>
+      </div>
+
+    </div>
+  </div>
+</nav>
+
+===== C:\Users\Hanzla\Desktop\MAJORPROJECT - Copy\views\layouts\boilerplate.ejs =====
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>opendoors</title>
+    <link rel="stylesheet" href="/css/style.css" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.3.1/css/all.min.css" integrity="sha512-QeR2VH+lsBE5LSAe1Q5EnTBbe7XTBubt8dG93Y7gidSgdMCr8nVqKcfKAMyN96SV8KDbZVTDXChatu5G2KQGzg==" crossorigin="anonymous" referrerpolicy="no-referrer">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+</head>
+<body>
+    <%- include("../includes/navbar.ejs") %>
+    <div class="container">
+        <%- include("../includes/flash.ejs") %>
+        <%- body %>
+    </div>
+
+     <%- include("../includes/footer.ejs") %>
+
+
+     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>
+     <script src="/js/script.js"></script>
+  </body>
+</html>
+
+===== C:\Users\Hanzla\Desktop\MAJORPROJECT - Copy\views\listings\edit.ejs =====
+<% layout("/layouts/boilerplate") %>
+
+<div class="row mt-3">
+    <div class="col-8 offset-2">
+
+        <h2>Edit Your Listing</h2>
+
+        <!--Edit ke liye technically PUT/PATCH hona chahiye, kyunki existing listing ko update kar rahe ho.-->
+
+        <form method="POST" action="/listings/<%= listing._id %>?_method=PUT"
+            novalidate
+            class="needs-validation"
+            enctype="multipart/form-data"
+            >
+
+            <div class="mb-3">
+                <label for="title" class="form-label">Title</label>
+                <input
+                    name="listing[title]"
+                    value="<%= listing.title %>"
+                    type="text"
+                    class="form-control"
+                    required
+                >
+                <div class="valid-feedback">Title looks good!</div>
+            </div>
+
+            <div class="mb-3">
+                <label for="description" class="form-label">Description</label>
+                <textarea
+                    name="listing[description]"
+                    id="description"
+                    class="form-control"
+                    required
+                ><%= listing.description %></textarea>
+                <div class="invalid-feedback">Please enter a short description</div>
+            </div>
+
+
+
+            <div class="mb-3">
+                <label for="image" class="form-label">Upload New Listing Image</label>
+                <input
+                    id="image"
+                    name="listing[image]"
+                    type="file"
+                    class="form-control"
+                >
+            </div>
+
+
+            <div class="row">
+
+                <div class="mb-3 col-md-4">
+                    <label for="price" class="form-label">Price</label>
+                    <input
+                        name="listing[price]"
+                        value="<%= listing.price %>"
+                        type="number"
+                        class="form-control"
+                        required
+                    >
+                    <div class="invalid-feedback">Price should be valid</div>
+                </div>
+
+                <div class="mb-3 col-md-8">
+                    <label for="country" class="form-label">Country</label>
+                    <input
+                        name="listing[country]"
+                        value="<%= listing.country %>"
+                        type="text"
+                        class="form-control"
+                        required
+                    >
+                     <div class="invalid-feedback">Country name should be valid</div>
+                </div>
+
+            </div>
+
+            <div class="mb-3">
+                <label for="location" class="form-label">Location</label>
+                <input
+                    name="listing[location]"
+                    value="<%= listing.location %>"
+                    type="text"
+                    class="form-control"
+                    required
+                >
+                <div class="invalid-feedback">location should be valid</div>
+            </div>
+
+            <button class="btn btn-dark mt-3">Edit</button>
+
+        </form>
+
+    </div>
+</div>
+
+===== C:\Users\Hanzla\Desktop\MAJORPROJECT - Copy\views\listings\index.ejs =====
+<% layout("/layouts/boilerplate") %> 
+<body>
+    <h3>All Listings</h3>
+    <!-- 
+    <form method="GET" action="/listings/new">
+        <button>Create New Listing</button>
+    </form>
+     -->
+
+<!--cards ko row k andar laane k lie we have created row-->
+<div class="row row-cols-lg-3 row-cols-md-2 row-cols-sm-1">
+    <!--cols lg 3 ki wja se ek row me 3 card ajynge or uske age jo h thats used for jab page chota hoga medium and small hoga to kitne cards dikhnge-->
+
+    <% for(let listing of allListings) { %>
+
+        <a href="/listings/<%= listing._id %>" class="listing-link col">
+            <div class="card col listing-card">
+                <img src="<%= listing.image && listing.image.url ? listing.image.url : '/images/default.jpg' %>" class="card-img-top" alt="listing_image" style="height: 20rem">
+
+                <div class="card-img-overlay">abc</div>
+
+                <div class="card-body">
+                    <p class="card-text">
+                       <b><%= listing.title %></b> <br />
+                        &#8377; <%= listing.price != null ? listing.price.toLocaleString("en-IN") : "N/A" %> / night
+                    </p>
+                </div>
+            </div>
+        </a>
+
+    <% } %>
+</div>
+
+===== C:\Users\Hanzla\Desktop\MAJORPROJECT - Copy\views\listings\new.ejs =====
+<% layout("/layouts/boilerplate") %>
+<div class="row mt-3">
+    <div class="col-8 offset-2">
+    <br><br>
+
+    <h2>Create a new listing</h2>
+
+    <form method="POST" action="/listings" novalidate class="needs-validation" enctype="multipart/form-data"><!--bootsrap ka default wala for other browswrs-->
+
+        <div class="mb-3">
+            <label for="title" class="form-label">Title</label>
+            <input
+                name="listing[title]"
+                placeholder="Enter a catchy title"
+                type="text"
+                class="form-control"
+                required
+            >
+            <div class="valid-feedback">Title looks good!</div>
+        </div>
+
+        <div class="mb-3">
+            <label for="description" class="form-label">Description</label>
+            <textarea
+                name="listing[description]"
+                placeholder="Enter description"
+                class="form-control"
+                required
+            ></textarea>
+
+            <div class="invalid-feedback">Please entet a short description</div>
+        </div>
+
+        <div class="mb-3">
+            <label for="image" class="form-label">Upload Listing Image</label>
+            <input
+                id="image"
+                name="listing[image]"
+                type="file"
+                class="form-control"
+            >
+        </div>
+
+        <div class="row">
+            <div class="mb-3 col-md-4">
+            <label for="price" class="form-label">Price</label>
+            <input
+                name="listing[price]"
+                placeholder="1200"
+                type="number"
+                class="form-control"
+                required
+            >
+            <div class="invalid-feedback">Price should be valid</div>
+        </div>
+
+        <div class="mb-3 col-8">
+            <label for="country" class="form-label">Country</label>
+            <input
+                name="listing[country]"
+                placeholder="India"
+                type="text"
+                class="form-control"
+                required
+
+            >
+            <div class="invalid-feedback">Country name should be valid</div>
+        </div>
+
+        </div>
+
+        
+        <div class="mb-3">
+            <label for="location" class="form-label">Location</label>
+            <input
+                name="listing[location]"
+                placeholder="Bihar, Patna"
+                type="text"
+                class="form-control"
+                required
+            >
+            <div class="invalid-feedback">location should be valid</div>
+        </div>
+
+        <button class="btn btn-dark add-btn mt-3">Add</button>
+      
+
+    </form>
+</div>
+</div>
+
+===== C:\Users\Hanzla\Desktop\MAJORPROJECT - Copy\views\listings\show.ejs =====
+<% layout("/layouts/boilerplate") %>
+
+<div class="row mt-3">
+
+    <div class="col-8 offset-2">
+
+        <h3><%= listing.title %></h3>
+
+        <div class="card col-6 offset-3 show-card listing-card">
+
+            <img
+                src="<%= listing.image.url %>"
+                class="card-img-top show-img"
+                alt="listing_image"
+            >
+
+            <div class="card-body">
+                <p class="card-text">Owned By: <i><%= listing.owner.username %></i></p>
+                <p class="card-text"><%= listing.description %></p>
+                <p class="card-text">&#8377; <%= listing.price != null ? listing.price.toLocaleString("en-IN") : "N/A" %></p>
+                <p class="card-text"><%= listing.location %></p>
+                <p class="card-text"><%= listing.country %></p>
+            </div>
+        </div>
+
+        <br>
+
+        <!--
+            Owner check: jo user abhi login hai, kya wahi is listing ka owner hai?
+            Agar haan, to hi Edit aur Delete buttons dikhte hain.
+        -->
+        <% if(currUser && listing.owner._id.equals(currUser._id)) { %>
+        <div class="btns">
+            <a
+                href="/listings/<%= listing.id %>/edit"
+                class="btn btn-dark edit-btn"
+            >
+                Edit
+            </a>
+            <form
+                method="POST"
+                action="/listings/<%= listing.id %>?_method=DELETE"
+            >
+                <button class="btn btn-dark">
+                    Delete
+                </button>
+            </form>
+        </div>
+        <% } %>
+
+    </div>
+
+
+    <div class="col-8 offset-3 mb-3">
+        <hr>
+
+        <!--Review form sirf logged in user ko dikhega-->
+        <% if(currUser) { %>
+        <h4>Leave a Review</h4>
+
+        <form action="/listings/<%= listing.id %>/reviews" method="POST" novalidate class="needs-validation">
+            <div class="mb-3 mt-3">
+                <label for="rating" class="form-label">Rating</label>
+                <input
+                    type="range"
+                    min="1"
+                    max="5"
+                    id="rating"
+                    name="review[rating]"
+                    class="form-range"
+                />
+            </div>
+
+            <div class="mb-3 mt-3">
+                <label for="comment" class="form-label">Comment</label>
+                <textarea
+                    name="review[comment]"
+                    id="comment"
+                    rows="5"
+                    cols="30"
+                    class="form-control"
+                    required
+                ></textarea>
+                <div class="invalid-feedback">
+                    Please Share some reviews..
+                </div>
+            </div>
+
+            <button class="btn btn-outline-dark">Submit</button>
+        </form>
+        <% } %>
+
+
+        <p><b>All Reviews</b></p>
+        <div class="row">
+
+            <% for (review of listing.reviews) { %>
+            <div class="col-5 ms-3 mb-3">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">@<%= review.author.username %></h5>
+                        <p class="card-text"><%= review.comment %></p>
+                        <p class="card-text"><%= review.rating %> stars</p>
+                        <form action="/listings/<%= listing._id %>/reviews/<%= review._id %>?_method=DELETE" method="POST">
+                            <button class="btn btn-sm btn-dark">Delete</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            <% } %>
+
+        </div>
+    </div>
+</div>
+
+===== C:\Users\Hanzla\Desktop\MAJORPROJECT - Copy\views\users\login.ejs =====
+<% layout("/layouts/boilerplate") %>
+
+<div class="row mt-3">
+    <h1 class="col-6 offset-3" >LogIn on OpenDoors</h1>
+    <div class="col-6 offset-3">
+        <form action="/login" method="POST" class="needs-validation" novalidate>
+            <div class="mb-3">
+            <label for="username" class="form-label">Username</label>
+            <input
+                name="username"
+                id="username"
+                type="text"
+                class="form-control"
+                required
+            >
+            
+            </div>
+
+
+
+            <div class="mb-3">
+            <label for="password" class="form-label">Password</label>
+            <input
+                name="password"
+                id="password"
+                type="password"
+                class="form-control"
+                required
+            >
+            </div>
+            <button class="btn btn-success">LogIn</button>
+        </form>
+    </div>
+</div>
+
+===== C:\Users\Hanzla\Desktop\MAJORPROJECT - Copy\views\users\signup.ejs =====
+<% layout("/layouts/boilerplate") %>
+
+<div class="row mt-3">
+    <h1 class="col-6 offset-3" >SignUp on OpenDoors</h1>
+    <div class="col-6 offset-3">
+        <form action="/signup" method="POST" class="needs-validation" novalidate>
+            <div class="mb-3">
+            <label for="username" class="form-label">Username</label>
+            <input
+                name="username"
+                id="username"
+                type="text"
+                class="form-control"
+                required
+            >
+            <div class="valid-feedback">Looks good!</div>
+            </div>
+
+            <div class="mb-3">
+            <label for="email" class="form-label">Email</label>
+            <input
+                name="email"
+                id="email"
+                type="email"
+                class="form-control"
+                required
+            >
+            
+            </div>
+
+            <div class="mb-3">
+            <label for="password" class="form-label">Password</label>
+            <input
+                name="password"
+                id="password"
+                type="password"
+                class="form-control"
+                required
+            >
+            </div>
+            <button class="btn btn-success">SignUp</button>
+        </form>
+    </div>
+</div>
+
+===== C:\Users\Hanzla\Desktop\MAJORPROJECT - Copy\views\error.ejs =====
+<%  layout("/layouts/boilerplate") %>
+
+<div class="row mt-3">
+    <div class="alert alert-danger" role="alert">
+    <p class="alert-heading"><%=message%></p>
+    
+</div>
+</div>
+
+===== C:\Users\Hanzla\Desktop\MAJORPROJECT - Copy\app.js =====
+if (process.env.NODE_ENV != "production") {
+  require("dotenv").config();
+}
+
+
+const express = require("express");
+const app = express();
+const mongoose = require("mongoose");
+const path = require("path");
+const methodOverride = require("method-override");
+const ejsMate = require("ejs-mate"); 
+const ExpressError = require("./utils/ExpressError.js");
+const session = require("express-session");
+const flash  = require("connect-flash");
+const passport = require("passport");
+const LocalStrategy = require("passport-local");
+const User = require("./models/user.js");
+
+
+
+const listingsRouter = require("./routes/listing.js");
+const reviewsRouter = require("./routes/review.js");
+const userRouter = require("./routes/user.js");
+
+
+
+//DataBase Connection
+const MONGO_URL = "mongodb://127.0.0.1:27017/opendoors";
+
+main()
+  .then(() => {
+    console.log("connected to DB");
+  })
+  .catch((err) => {
+    console.log(err);
+  });
+
+
+async function main() {
+  await mongoose.connect(MONGO_URL);
+
+}
+
+
+
+app.set("view engine","ejs");
+app.set("views", path.join(__dirname, "views"));
+app.use(express.urlencoded({extended: true}));
+app.use(methodOverride("_method"));
+app.engine('ejs', ejsMate);
+app.use(express.static(path.join(__dirname, "/public")));
+
+const sessionOptions = {
+  secret: "mysupersecretcode",
+  resave: false,
+  saveUninitialized: true,
+  cookie: {
+    expires: Date.now() + 7 * 24 * 60 * 60 * 1000, //ONE week 
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+    httpOnly: true,
+  },
+};
+
+//Root API
+app.get("/", (req, res) => {
+    res.send("Hi, I am root");
+});
+
+
+app.use(session(sessionOptions));
+app.use(flash());
+
+
+//Middlweare to initialse Passport or isko session me hi krnge passport ko
+app.use(passport.initialize()); // Passport ko initialize karta hai taaki authentication use ho sake
+app.use(passport.session()); // User ka login session maintain karta hai
+passport.use(new LocalStrategy(User.authenticate())); // Username aur password verify karne ki strategy set karta hai
+
+passport.serializeUser(User.serializeUser()); // User ki ID session mein store karta hai
+passport.deserializeUser(User.deserializeUser()); // Session ki ID se user ki details wapas nikalta hai
+
+
+
+
+
+//middlweare
+app.use((req, res, next) => {
+  res.locals.success = req.flash("success");
+  res.locals.error = req.flash("error");
+  res.locals.currUser = req.user;   //req.user ko ejs me direct use nhi kr skte thats why local varble me store kradia
+  next();
+});
+
+// app.get("/demouser", async (req, res) => {
+//   let fakeUser = new User({
+//     email: "student@gmail.com",
+//     username: "delta-student",
+//   });
+
+//   let registeredUser = await User.register(fakeUser, "abc");
+//   res.send(registeredUser);
+// });
+
+
+
+app.use("/listings", listingsRouter);
+app.use("/listings/:id/reviews", reviewsRouter);
+app.use("/", userRouter);
+
+
+
+//base response for route 
+app.all("*name", (req, res, next) => {
+  next(new ExpressError(404, "Page Not Found!"));
+});
+
+
+
+//middlweare for error handling
+app.use((err, req, res, next) => {
+  let {statusCode=500, message="something went wrong"} = err;
+  res.status(statusCode).render("error.ejs", { message });
+  //res.status(statusCode).send(message);
+});
+
+
+
+app.listen(8080, () => {
+    console.log("server is listening to port 8080");
+});
+
+===== C:\Users\Hanzla\Desktop\MAJORPROJECT - Copy\cloudConfig.js =====
+const cloudinary = require("cloudinary").v2;
+const { CloudinaryStorage } = require("multer-storage-cloudinary");
+
+cloudinary.config({
+  cloud_name: process.env.CLOUD_NAME,
+  api_key: process.env.CLOUD_API_KEY,
+  api_secret: process.env.CLOUD_API_SECRET,
+});
+
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: "opendoors_DEV",
+    allowedFormats: ["png", "jpg", "jpeg"],
+  },
+});
+
+module.exports = { cloudinary, storage };
+
+===== C:\Users\Hanzla\Desktop\MAJORPROJECT - Copy\middleware.js =====
+
+const Listing = require("./models/listing");
+const Review = require("./models/review");
+const ExpressError = require("./utils/ExpressError.js");
+const { listingSchema, reviewSchema} = require("./schema.js");
+
+module.exports.validateListing = (req, res, next) => {
+  let {error} = listingSchema.validate(req.body);
+
+  if (error) {
+    let errMsg = error.details.map((el) => el.message).join(",");
+
+    throw new ExpressError(400, error);
+  } else {
+    next();
+  }
+}
+
+module.exports.validateReview = (req, res, next) => {
+  let {error} = reviewSchema.validate(req.body);
+
+  if (error) {
+    let errMsg = error.details.map((el) => el.message).join(",");
+
+    throw new ExpressError(400, error);
+  } else {
+    next();
+  }
+}
+
+
+module.exports.isLoggedIn = (req, res, next) => {
+    if(!req.isAuthenticated()) { //passport method   //This will check that the user is logged in or not for creating a new listing
+        req.session.redirectUrl = req.originalUrl;
+        req.flash("error", "you must be logged in to create listing!");
+        return res.redirect("/login");
+   }
+   next();
+};
+
+//Line no 3 explanation 
+// req.originalUrl wo URL hai jahan user jaana chah raha tha (jaise /listings/new).
+// req.session.redirectUrl = ... usse session me save kar leta hai, phir user ko /login bhej deta hai.
+// Login ke baad us saved URL pe wapas bhej doge, to user wahi pahunchega jahan jaana tha.
+
+
+
+module.exports.saveRedirectUrl = (req, res, next) => {
+    if (req.session.redirectUrl) {
+        res.locals.redirectUrl = req.session.redirectUrl;
+    }
+    next();
+};
+//Above middlware eplanation.. 
+//Login ke baad user ko wapas wahi bhejne ke liye (jahan se wo aaya tha)
+
+//Problem: login hote hi Passport session ko saaf kar deta hai,
+//isliye req.session.redirectUrl gayab ho jaata hai (undefined mil jaata hai)
+
+//Solution: session saaf hone se PEHLE value ko res.locals (local variable) me copy kar lo,
+//kyunki Passport res.locals ko nahi chhuta
+
+
+
+
+//authorisation - jo bhi listing h uska id and owner ka id same nhi h to
+
+//authorisation - listing ka owner aur logged in user same nhi h to rok do
+module.exports.isOwner = async (req, res, next) => {
+  let { id } = req.params;
+  let listing = await Listing.findById(id);
+  if (!listing.owner.equals(res.locals.currUser._id)) {
+    req.flash("error", "You are not the owner of this listing");
+    return res.redirect(`/listings/${id}`);
+  }
+  next();
+};
+
+
+//whi author review delete kr skta h jo usne khud likha ho review 
+module.exports.isReviewAuthor = async (req, res, next) => {
+  let { id, reviewId } = req.params;
+  let review  = await Review.findById(reviewId);
+  if (!review.author.equals(res.locals.currUser._id)) {
+    req.flash("error", "You are not the author of this review");
+    return res.redirect(`/listings/${id}`);
+  }
+  next();
+};
+
+
+===== C:\Users\Hanzla\Desktop\MAJORPROJECT - Copy\schema.js =====
+//joi package used
+const Joi = require("joi");
+
+module.exports.listingSchema = Joi.object({
+    listing: Joi.object({
+        title: Joi.string().required(),
+        description: Joi.string().required(),
+        location: Joi.string().required(),
+        country: Joi.string().required(),
+        price: Joi.number().required(),
+        //image ab string (URL) ya object ({filename, url}) dono allow karta hai, kyunki edit form se object aa sakta hai
+        image: Joi.alternatives().try(
+            Joi.string().allow("", null),
+            Joi.object({
+                filename: Joi.string().allow("", null),
+                url: Joi.string().allow("", null),
+            })
+        ),
+    }).required(),
+});
+
+module.exports.reviewSchema = Joi.object({
+    review: Joi.object({
+        rating: Joi.number().required().min(1).max(5),
+        comment: Joi.string().required(),
+    }).required(),
+});

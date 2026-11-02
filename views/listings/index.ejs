@@ -1,6 +1,40 @@
 <% layout("/layouts/boilerplate") %> 
-<body>
-    <h3>All Listings</h3>
+
+    
+
+    <div class="d-flex align-items-center justify-content-end flex-wrap gap-3 mb-3">
+        <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" role="switch" id="taxSwitch">
+            <label class="form-check-label" for="taxSwitch">Display total after taxes</label>
+        </div>
+    </div>
+
+    <div id="filters">
+        <% const cats = [
+            ["Trending","fa-solid fa-fire"],
+            ["Rooms","fa-solid fa-bed"],
+            ["Iconic cities","fa-solid fa-mountain-city"],
+            ["Mountains","fa-solid fa-mountain"],
+            ["Castles","fa-solid fa-chess-rook"],
+            ["Amazing pools","fa-solid fa-person-swimming"],
+            ["Camping","fa-solid fa-campground"],
+            ["Farms","fa-solid fa-tractor"],
+            ["Arctic","fa-solid fa-snowflake"],
+            ["Domes","fa-solid fa-igloo"],
+            ["Boats","fa-solid fa-ship"],
+            ["Desert","fa-solid fa-sun"],
+            ["Beach","fa-solid fa-umbrella-beach"]
+        ]; %>
+        <% for (let c of cats) { %>
+            <a href="/listings?category=<%= encodeURIComponent(c[0]) %>" class="filter <%= category === c[0] ? 'active' : '' %>">
+                <div><i class="<%= c[1] %>"></i></div>
+                <p><%= c[0] %></p>
+            </a>
+        <% } %>
+    </div>
+
+    <h3 class="mt-0 mb-3 fw-semibold">All Listings</h3>
+
     <!-- 
     <form method="GET" action="/listings/new">
         <button>Create New Listing</button>
@@ -15,14 +49,14 @@
 
         <a href="/listings/<%= listing._id %>" class="listing-link col">
             <div class="card col listing-card">
-                <img src="<%= listing.image && listing.image.url ? listing.image.url : '/images/default.jpg' %>" class="card-img-top" alt="listing_image" style="height: 20rem">
+                <img src="<%= listing.image && listing.image.url ? listing.image.url : '/images/default.jpg' %>" class="card-img-top" alt="listing_image">
 
-                <div class="card-img-overlay">abc</div>
+                <div class="card-img-overlay"></div>
 
                 <div class="card-body">
                     <p class="card-text">
                        <b><%= listing.title %></b> <br />
-                        &#8377; <%= listing.price != null ? listing.price.toLocaleString("en-IN") : "N/A" %> / night
+                        &#8377; <span class="price-val" data-price="<%= listing.price != null ? listing.price : '' %>"><%= listing.price != null ? listing.price.toLocaleString("en-IN") : "N/A" %></span> / night<span class="tax-info"> &nbsp;+18% GST</span>
                     </p>
                 </div>
             </div>
@@ -30,3 +64,18 @@
 
     <% } %>
 </div>
+
+<script>
+    const taxSwitch = document.getElementById("taxSwitch");
+    taxSwitch.addEventListener("change", () => {
+        document.querySelectorAll(".price-val").forEach((el) => {
+            const p = parseFloat(el.dataset.price);
+            if (isNaN(p)) return;
+            const val = taxSwitch.checked ? Math.round(p * 1.18) : p;
+            el.textContent = val.toLocaleString("en-IN");
+        });
+        document.querySelectorAll(".tax-info").forEach((el) => {
+            el.style.display = taxSwitch.checked ? "inline" : "none";
+        });
+    });
+</script>

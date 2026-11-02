@@ -10,6 +10,7 @@
         <form method="POST" action="/listings/<%= listing._id %>?_method=PUT"
             novalidate
             class="needs-validation"
+            enctype="multipart/form-data"
             >
 
             <div class="mb-3">
@@ -38,16 +39,13 @@
 
 
             <div class="mb-3">
-                <label for="image" class="form-label">Image URL</label>
+                <label for="image" class="form-label">Upload New Listing Image</label>
                 <input
-                    name="listing[image][url]"
-                    value="<%= listing.image.url %>"
-                    type="text"
+                    id="image"
+                    name="listing[image]"
+                    type="file"
                     class="form-control"
-                    required
-                    
                 >
-                <div class="invalid-feedback">Please enter the valid link of image </div>
             </div>
 
 
@@ -89,6 +87,17 @@
                     required
                 >
                 <div class="invalid-feedback">location should be valid</div>
+            </div>
+
+            <div class="mb-3">
+                <label for="category" class="form-label">Category</label>
+                <select name="listing[category]" id="category" class="form-select" required>
+                    <option value="" disabled <%= !listing.category ? "selected" : "" %>>Select category</option>
+                    <% for (let c of ["Trending","Rooms","Iconic cities","Mountains","Castles","Amazing pools","Camping","Farms","Arctic","Domes","Boats","Desert","Beach"]) { %>
+                        <option value="<%= c %>" <%= listing.category === c ? "selected" : "" %>><%= c %></option>
+                    <% } %>
+                </select>
+                <div class="invalid-feedback">Please select a category</div>
             </div>
 
             <button class="btn btn-dark mt-3">Edit</button>
