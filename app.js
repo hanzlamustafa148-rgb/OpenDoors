@@ -15,6 +15,7 @@ const flash  = require("connect-flash");
 const passport = require("passport");
 const LocalStrategy = require("passport-local");
 const User = require("./models/user.js");
+const { MongoStore } = require("connect-mongo");
 
 
 
@@ -25,7 +26,10 @@ const userRouter = require("./routes/user.js");
 
 
 //DataBase Connection
-const MONGO_URL = "mongodb://127.0.0.1:27017/opendoors";
+//const MONGO_URL = "mongodb://127.0.0.1:27017/opendoors";
+
+//Mongo Atlas connection
+const dbUrl = process.env.ATLASDB_URL;
 
 main()
   .then(() => {
@@ -37,7 +41,7 @@ main()
 
 
 async function main() {
-  await mongoose.connect(MONGO_URL);
+  await mongoose.connect(dbUrl);
 
 }
 
@@ -50,7 +54,23 @@ app.use(methodOverride("_method"));
 app.engine('ejs', ejsMate);
 app.use(express.static(path.join(__dirname, "/public")));
 
+
+//Mongo atlas session store
+const store = MongoStore.create({
+  mongoUrl: dbUrl,
+  crypto: {
+    secret: process.env.SECRET,
+  },
+  touchAfter: 24 * 3600,
+});
+
+store.on("error", (err) => {
+  console.log("ERROR IN MONGO SESSION STORE", err)
+});
+
+
 const sessionOptions = {
+  store,
   secret: "mysupersecretcode",
   resave: false,
   saveUninitialized: true,
@@ -60,6 +80,17 @@ const sessionOptions = {
     httpOnly: true,
   },
 };
+
+
+
+
+
+
+
+
+
+
+
 
 //Root API
 app.get("/", (req, res) => {
